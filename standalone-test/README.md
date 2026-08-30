@@ -9,7 +9,7 @@
 ### MSVC (Windows)
 
 ```bat
-call "d:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+call "C:\Program Files\Microsoft Visual Studio\2022\*\VC\Auxiliary\Build\vcvars64.bat"
 cd storage\fastmem\standalone-test
 cl /nologo /W3 /std:c++17 /O2 /EHsc /MT main.cpp /Fe:fmtest.exe
 fmtest.exe > result.txt

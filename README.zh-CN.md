@@ -68,7 +68,7 @@ SQL 层的 `UPDATE/DELETE` 是「读旧图 → 计算 → 写回」三步（跨 
 无需服务器、无需 cmake；需要 MSVC（cl）或任一 C++17 编译器：
 
 ```bat
-call "d:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+call "C:\Program Files\Microsoft Visual Studio\2022\*\VC\Auxiliary\Build\vcvars64.bat"
 cd storage\fastmem\standalone-test
 cl /nologo /W3 /std:c++17 /O2 /EHsc /MT main.cpp /Fe:fmtest.exe
 fmtest.exe
@@ -79,7 +79,9 @@ fmtest.exe
 
 ### 3.2 作为 MariaDB 插件编译
 
-把 `storage/fastmem/` 目录放进 MariaDB 源码树，然后正常 configure：
+把 `storage/fastmem/` 目录放进任意 **MariaDB 12.x 源码树**的
+`storage/` 下（本引擎在 **mariadb-12.1.1 发布版源码树**上完成编译验证；
+13.x 开发树用作持续同步），然后正常 configure：
 
 ```bat
 cmake -S . -B build ^
