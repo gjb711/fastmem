@@ -175,8 +175,11 @@ DST="$SRC/storage/fastmem"
 echo ">> copying engine sources: $(basename "$SCRIPT_DIR") -> $DST"
 rm -rf "$DST"
 mkdir -p "$DST"
-# Copy everything except the local git dir (and build leftovers).
-(cd "$SCRIPT_DIR" && tar --exclude=.git -cf - .) | tar -C "$DST" -xf -
+# Copy the repository contents, excluding the local git dir, the freshly
+# cloned server tree and any previous build dir (they must not be
+# re-packaged into the engine directory).
+(cd "$SCRIPT_DIR" && tar --exclude=.git --exclude='mariadb-server*' \
+    --exclude='build_fastmem*' -cf - .) | tar -C "$DST" -xf -
 [[ -f "$DST/CMakeLists.txt" ]] || { echo "ERROR: CMakeLists.txt missing after copy." >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
