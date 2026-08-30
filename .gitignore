@@ -1,0 +1,13 @@
+# build artifacts / temporary files
+*.exe
+*.obj
+*.o
+*.dll
+*.pdb
+*.lib
+*.out
+*.tmp
+clcheck*.txt
+result.txt
+run*.txt
+build/
