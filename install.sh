@@ -70,6 +70,22 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ---------------------------------------------------------------------------
+# decide which refs to fetch (shared by dry-run and the real run)
+# ---------------------------------------------------------------------------
+
+if [[ -n "$BRANCH" ]]; then
+  REFS=("$BRANCH")
+elif [[ -z "$SOURCE_DIR" ]]; then
+  REFS=("maria-${VERSION}" "${VERSION}")
+  # "12.1.1" -> also try the maintenance branch "12.1": MariaDB releases
+  # are cut from X.Y branches, so patch versions may not have their own
+  # tag/branch on GitHub.
+  if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    REFS+=("${VERSION%.*}")
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # dry-run: print the plan and stop (before any toolchain checks)
 # ---------------------------------------------------------------------------
 
@@ -77,7 +93,6 @@ if [[ "$DRY_RUN" == "1" ]]; then
   if [[ -n "$SOURCE_DIR" ]]; then
     echo ">> plan: reuse source tree $SOURCE_DIR (storage/fastmem will be created inside it)"
   else
-    if [[ -n "$BRANCH" ]]; then REFS=("$BRANCH"); else REFS=("maria-${VERSION}" "${VERSION}"); fi
     echo ">> plan: git clone --depth 1 --branch <ref> https://github.com/MariaDB/server.git"
     echo "         refs to try (in order): ${REFS[*]}"
   fi
@@ -134,11 +149,6 @@ else
     echo ">> directory '$SRC' already has a checkout - reusing it."
     echo "   (remove it or pass --source-dir to use another tree)"
   else
-    if [[ -n "$BRANCH" ]]; then
-      REFS=("$BRANCH")
-    else
-      REFS=("maria-${VERSION}" "${VERSION}")
-    fi
     CLONED=0
     for ref in "${REFS[@]}"; do
       echo ">> git clone --depth 1 --branch $ref https://github.com/MariaDB/server.git"
