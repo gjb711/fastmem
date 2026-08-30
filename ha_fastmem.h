@@ -87,12 +87,6 @@ public:
   int reset() override;
   int external_lock(THD *thd, int lock_type) override
   {
-    /* DEBUG-ONCE: observe the real lock_type from the server */
-    static std::atomic<int> dbg{0};
-    if (dbg.fetch_add(1) == 0)
-      fprintf(stderr, "FM-DBG external_lock first call: lock_type=%d write_stmt_before=%d\n",
-              (int)lock_type, (int)write_stmt);
-
     /*
       Track write statements so row reads can serialize the whole
       read-modify-write cycle (see lock_current_row).  There is still
