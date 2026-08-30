@@ -206,37 +206,43 @@ int ha_fastmem::write_row(const uchar * buf)
 int ha_fastmem::update_row(const uchar * old_data, const uchar * new_data)
 {
   /*
-    Write statements hold the slot wlock from the row read: run the
-    update under that lock and release it.  If the lock is stale (should
-    not happen in normal flow), drop it and fall back to the
-    self-locking core path.
+    The slot wlock is held from the row read across the whole
+    read-modify-write cycle.  Defensively, if a path reached us
+    without the lock, try to take it now; only refuse when that is
+    impossible.  Never write unlocked: that would lose updates.
   */
-  if (write_stmt && row_locked)
+  if (!(write_stmt && row_locked && locked_slot == file->current_slot))
   {
-    if (locked_slot == file->current_slot)
+    if (write_stmt && file->current_slot >= 0 && !row_locked)
+      lock_current_row();
+    if (!(row_locked && locked_slot == file->current_slot))
     {
-      int rc= fm_update_locked(file, old_data, new_data);
       unlock_current_row();
-      return rc;
+      my_errno= HA_ERR_RECORD_CHANGED;
+      return my_errno;
     }
-    unlock_current_row();
   }
-  return fm_update(file, old_data, new_data);
+  int rc= fm_update_locked(file, old_data, new_data);
+  unlock_current_row();
+  return rc;
 }
 
 int ha_fastmem::delete_row(const uchar * buf)
 {
-  if (write_stmt && row_locked)
+  if (!(write_stmt && row_locked && locked_slot == file->current_slot))
   {
-    if (locked_slot == file->current_slot)
+    if (write_stmt && file->current_slot >= 0 && !row_locked)
+      lock_current_row();
+    if (!(row_locked && locked_slot == file->current_slot))
     {
-      int rc= fm_delete_locked(file, buf);
       unlock_current_row();
-      return rc;
+      my_errno= HA_ERR_RECORD_CHANGED;
+      return my_errno;
     }
-    unlock_current_row();
   }
-  return fm_delete(file, buf);
+  int rc= fm_delete_locked(file, buf);
+  unlock_current_row();
+  return rc;
 }
 
 void ha_fastmem::get_auto_increment(ulonglong offset, ulonglong increment,
@@ -259,7 +265,17 @@ int ha_fastmem::index_read_map(uchar *buf, const uchar *key,
      (mirrors heap_rkey semantics for hash indexes). */
   int rc= fm_find_key(file, active_index, key, buf);
   if (rc == 0 && write_stmt)
+  {
     lock_current_row();
+    /* Re-read under the lock: the pre-lock image may already be stale
+       (another writer may have updated the row between our lookup and
+       the lock acquisition). */
+    if (fm_reread_locked(file, buf))
+    {
+      unlock_current_row();
+      return my_errno= HA_ERR_KEY_NOT_FOUND;
+    }
+  }
   return rc;
 }
 
@@ -269,7 +285,17 @@ int ha_fastmem::index_read_last_map(uchar *buf, const uchar *key,
   DBUG_ASSERT(inited==INDEX);
   int rc= fm_find_key(file, active_index, key, buf);
   if (rc == 0 && write_stmt)
+  {
     lock_current_row();
+    /* Re-read under the lock: the pre-lock image may already be stale
+       (another writer may have updated the row between our lookup and
+       the lock acquisition). */
+    if (fm_reread_locked(file, buf))
+    {
+      unlock_current_row();
+      return my_errno= HA_ERR_KEY_NOT_FOUND;
+    }
+  }
   return rc;
 }
 
@@ -279,7 +305,17 @@ int ha_fastmem::index_read_idx_map(uchar *buf, uint index, const uchar *key,
 {
   int rc= fm_find_key(file, index, key, buf);
   if (rc == 0 && write_stmt)
+  {
     lock_current_row();
+    /* Re-read under the lock: the pre-lock image may already be stale
+       (another writer may have updated the row between our lookup and
+       the lock acquisition). */
+    if (fm_reread_locked(file, buf))
+    {
+      unlock_current_row();
+      return my_errno= HA_ERR_KEY_NOT_FOUND;
+    }
+  }
   return rc;
 }
 
@@ -293,7 +329,15 @@ int ha_fastmem::index_next(uchar * buf)
   if (error == HA_ERR_KEY_NOT_FOUND && !(file->update & HA_STATE_NO_KEY))
     return my_errno= HA_ERR_END_OF_FILE;
   if (error == 0 && write_stmt)
+  {
     lock_current_row();
+    /* Re-read under the lock: the pre-lock image may be stale. */
+    if (fm_reread_locked(file, buf))
+    {
+      unlock_current_row();
+      return my_errno= HA_ERR_KEY_NOT_FOUND;
+    }
+  }
   return error;
 }
 
@@ -332,7 +376,15 @@ int ha_fastmem::rnd_next(uchar *buf)
   if (error == HA_ERR_END_OF_FILE)
     return HA_ERR_END_OF_FILE;
   if (error == 0 && write_stmt)
+  {
     lock_current_row();                 /* moves the lock to the new row */
+    /* Re-read under the lock: the pre-lock image may be stale. */
+    if (fm_reread_locked(file, buf))
+    {
+      unlock_current_row();
+      return my_errno= HA_ERR_RECORD_DELETED;
+    }
+  }
   return error;
 }
 
@@ -340,7 +392,17 @@ int ha_fastmem::rnd_pos(uchar * buf, uchar *pos)
 {
   int rc= fm_rrnd(file, buf, pos);
   if (rc == 0 && write_stmt)
+  {
     lock_current_row();
+    /* Re-read under the lock: the pre-lock image may already be stale
+       (another writer may have updated the row between our lookup and
+       the lock acquisition). */
+    if (fm_reread_locked(file, buf))
+    {
+      unlock_current_row();
+      return my_errno= HA_ERR_RECORD_DELETED;
+    }
+  }
   return rc;
 }
 
@@ -527,7 +589,15 @@ int ha_fastmem::find_unique_row(uchar *record, uint unique_idx)
   file->update= HA_STATE_AKTIV;
   memcpy(record, file->scratch, share->core.reclength);
   if (write_stmt)
+  {
     lock_current_row();
+    /* Re-read under the lock: the pre-lock image may be stale. */
+    if (fm_reread_locked(file, record))
+    {
+      unlock_current_row();
+      return 1;
+    }
+  }
   return 0;
 }
 

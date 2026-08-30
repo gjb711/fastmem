@@ -91,19 +91,35 @@ The exact, validated Windows/mariadb-12.1.1 recipe (wolfssl **v5.7.6-stable**, w
 
 ## Benchmark — MariaDB 12.1.1, Windows x64, real machine
 
-7000-row K-line dataset (`varchar(50)` PK + 2 hash indexes), local port 3309, scripts in `bench/`.
+Three-engine comparison (FASTMEM vs MEMORY vs InnoDB). 7000-row K-line
+dataset (`varchar(50)` PK + 2 indexes), 100 hot rows, local port 3309,
+separate `mysql` client connections as workers, scripts in `bench/`.
+Full report: [docs/BENCHMARK.md](docs/BENCHMARK.md).
 
-| Scenario | FASTMEM | Reference | Notes |
+| Scenario | FASTMEM | MEMORY | InnoDB |
 |---|---|---|---|
-| Single-connection baseline | ~1.00x | MEMORY | UPDATE 0.92x / SELECT 1.06x / INSERT 1.00x — at parity |
-| **Hot-row: 8 writers + 4 readers × 300 loops** | **1.24 s** | InnoDB **1.66 s** | 2400 contended UPDATEs on 100 hot rows + 1200 concurrent reads; **both sides delta = +2400 exact, zero lost updates** |
-| Pure UPDATE stream, 8 procs × 2000 stmts | ~1.0 s | InnoDB ~1.1 s | identical random sequence, 16 000 updates total |
-| Concurrent AUTO_INCREMENT, 4 procs × 250 rows | 1000 ids | — | ids 1..1000, **no duplicates, no gaps** |
+| A. Single-connection 2000 UPDATE | **0.50 s** | 1.37 s | 0.55 s |
+| A. Single-connection 500 SUM scans | 0.67 s | **0.58 s** | 1.13 s |
+| B. 8 procs × 2000 concurrent UPDATE | **1.03 s** | 8.08 s | 1.06 s |
+| C. Hot-row 8 writers + 4 readers × 300 | **1.23 s** | 1.90 s | 1.62 s |
+| D. 8 writers × 500, no readers | **0.80 s** | 2.42 s | 0.79 s |
+| D. 8 writers × 500, 4 readers | **1.41 s** | 2.86 s | 2.09 s |
+| D. 8 writers × 500, 8 readers | **1.83 s** | 3.16 s | 2.94 s |
+
+Every row above is also a correctness check: the final `SUM(close)` matches
+the expected increment exactly — **zero lost updates** on every run.
 
 Observations:
 
-- Under heavy hot-row contention InnoDB pays row-lock queueing; FASTMEM's cost barely grows with contention because there is no table lock, readers are lock-free and writers only spin on the row they touch.
-- End-to-end latency is still bounded by the MySQL protocol/connection layer (a local connection costs ~200 ms); the in-engine data path itself is sub-microsecond.
+- **Concurrent writes are where the table lock hurts**: MEMORY serializes
+  all 16 000 updates on its table lock (8.08 s vs ~1 s). FASTMEM writers
+  only touch the slot spinlock of the row they update.
+- **Readers never block writers**: as readers grow 0 → 4 → 8, FASTMEM writer
+  time degrades the least (0.80 → 1.83 s); FASTMEM reads are pure seqlock
+  copies that take no lock.
+- Single-connection numbers are close across engines — end-to-end latency is
+  dominated by the MySQL protocol/connection layer (~200 ms per local
+  connection); the in-engine data path itself is sub-microsecond.
 
 ## Tests
 

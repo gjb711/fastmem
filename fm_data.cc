@@ -80,6 +80,31 @@ int fm_write(FM_INFO *info, const uchar *record)
 }
 
 /* ------------------------------------------------------------------ */
+/* Re-read under the slot wlock (read-modify-write atomicity)          */
+/* ------------------------------------------------------------------ */
+
+/*
+  Re-read the current row while the caller already holds the slot
+  wlock.  The point lookup that located the row ran BEFORE the lock was
+  taken, so its image may already be stale; after this call the record
+  buffer holds the value guaranteed current for the whole
+  read-modify-write cycle.
+
+  Returns 0 on success; FM_ERR_DELETED when the row disappeared
+  between the pre-lock read and the lock acquisition (delete/recycle).
+*/
+int fm_reread_locked(FM_INFO *info, uchar *record)
+{
+  FM_SHARE *share= info->s;
+  fm_i32 idx= info->current_slot;
+  fm_u32 g= fm_slot_gen(share, idx);
+  int rc= fm_core_read_row(&share->core, idx, true, g, (fm_u8 *) record);
+  if (rc == FM_ERR_OK)
+    info->current_gen= g;
+  return rc;
+}
+
+/* ------------------------------------------------------------------ */
 /* Update                                                              */
 /* ------------------------------------------------------------------ */
 
@@ -363,7 +388,10 @@ int fm_extra(FM_INFO *info, enum ha_extra_function function)
   {
   case HA_EXTRA_RESET_STATE:
     fm_reset(info);
-    /* fall through */
+    break;                              /* keep READ_CHECK_USED: the read
+                                           check is a safety net and must
+                                           not be dropped by a statement
+                                           reset */
   case HA_EXTRA_NO_READCHECK:
     info->opt_flag&= ~READ_CHECK_USED;
     break;

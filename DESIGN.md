@@ -131,20 +131,31 @@ SQL 层 (handler: ha_fastmem.cc)
 无锁读只解决"读不加锁"；但 SQL 层的 `UPDATE/DELETE` 是
 「读旧图 → 计算 → 写回」三步（跨 handler 两次调用）。若不串行化，
 两个并发写者会读到同一旧图、各自算出新值，后写覆盖前写 →
-**丢失更新**（实测热行碰撞下每千次丢十余次）。
+**丢失更新**。
 
-修复（ha_fastmem）：
+修复（ha_fastmem，三点缺一不可）：
 
-- `external_lock()` 收到写锁（`>= TL_FIRST_WRITE`）时置 `write_stmt` 标志，
-  仅翻转句柄内标志，**无任何表级锁**；
-- 写语句期间，每次读行（`index_read*` / `rnd_next` / `rnd_pos` /
-  `find_unique_row`）即对命中的行槽取 `wlock` 并跨调用持有
-  （`lock_current_row()`；换行/语句结束自动迁移/释放）；
+- `external_lock()` 收到 `F_WRLCK` 时置 `write_stmt` 标志，仅翻转句柄
+  内标志，**无任何表级锁**。注意：MariaDB 传给 `external_lock` 的是
+  **fcntl 风格常量**（`F_RDLCK=1 / F_WRLCK=2 / F_UNLCK=3`，见
+  `include/my_global.h` 与 `sql/lock.cc::lock_external`），不是
+  `thr_lock_type` 枚举——按后者比较将永远识别不出写语句；
+- 写语句期间，每次读行（`index_read*` / `index_next` / `rnd_next` /
+  `rnd_pos` / `find_unique_row`）先对命中的行槽取 `wlock`，**再在锁内
+  重读该行**（`fm_reread_locked`）。定位/预读发生在取锁之前，读到的
+  可能已是旧图；锁内重读保证后续计算基于锁内的最新值。若行在预读与
+  取锁之间被删除/回收，重读失败并按"行不存在"返回；
 - `update_row()` / `delete_row()` 在锁内执行（`fm_update_locked` /
   `fm_delete_locked` → `fm_core_update_row_locked` /
   `fm_core_delete_row_locked`，不重复加锁）随后释放；
-- 效果：写者之间的整个读-算-写原子化（等价行锁且逐行释放，天然无
-  死锁、无锁序依赖）；**纯 SELECT 语句完全不进锁路径**，无锁读保持。
+- 效果：写者之间的整个「锁 → 重读 → 算 → 写」原子化（等价行锁且逐行
+  释放，天然无死锁、无锁序依赖）；**纯 SELECT 语句完全不进锁路径**，
+  无锁读保持。实测 8 进程 × 2000 条并发热行 UPDATE 零丢失
+  （见 `docs/BENCHMARK.md`）。
+
+辅助防线：`READ_CHECK_USED`（写前回读比对）保持开启——
+`fm_extra(HA_EXTRA_RESET_STATE)` 不得清除它（那是语句间的常规重置，
+不是显式的 `HA_EXTRA_NO_READCHECK`）。
 
 锁序影响：`wlock` 在 handler 层最先获取、最后释放，内部路径保持
 3 节表格原有顺序 ⇒ 无死锁证明不变。

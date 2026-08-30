@@ -87,12 +87,26 @@ public:
   int reset() override;
   int external_lock(THD *thd, int lock_type) override
   {
-    /* Track write statements so row reads can serialize the whole
-       read-modify-write cycle (see lock_current_row).  There is still
-       no table-level lock: this only flips an in-handler flag. */
-    if (lock_type >= TL_FIRST_WRITE)
+    /* DEBUG-ONCE: observe the real lock_type from the server */
+    static std::atomic<int> dbg{0};
+    if (dbg.fetch_add(1) == 0)
+      fprintf(stderr, "FM-DBG external_lock first call: lock_type=%d write_stmt_before=%d\n",
+              (int)lock_type, (int)write_stmt);
+
+    /*
+      Track write statements so row reads can serialize the whole
+      read-modify-write cycle (see lock_current_row).  There is still
+      no table-level lock: this only flips an in-handler flag.
+
+      NOTE: lock_type is fcntl-style (F_RDLCK=1 / F_WRLCK=2 /
+      F_UNLCK=3, see include/my_global.h), NOT thr_lock_type.  Earlier
+      builds compared against thr_lock_type values and never set
+      write_stmt, silently falling back to read-checked but unlocked
+      writes.
+    */
+    if (lock_type == F_WRLCK)
       write_stmt= true;
-    else if (lock_type == TL_UNLOCK)
+    else if (lock_type == F_UNLCK)
     {
       write_stmt= false;
       unlock_current_row();

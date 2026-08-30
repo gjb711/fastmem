@@ -159,6 +159,9 @@ extern int  fm_delete(FM_INFO *info, const uchar *buf);
 extern int  fm_update_locked(FM_INFO *info, const uchar *old,
                              const uchar *newdata);
 extern int  fm_delete_locked(FM_INFO *info, const uchar *buf);
+/* Re-read the current row under the already-held slot wlock so the
+   read-modify-write cycle starts from a fresh image. */
+extern int  fm_reread_locked(FM_INFO *info, uchar *record);
 extern int  fm_rrnd(FM_INFO *info, uchar *record, const uchar *pos);
 extern int  fm_scan_init(FM_INFO *info);
 extern int  fm_scan(FM_INFO *info, uchar *record);
