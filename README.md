@@ -61,13 +61,41 @@ Same public contract as the MEMORY engine:
 
 ## Building
 
+### 0) One-command install from source (recommended)
+
+The repository is a source distribution: clone it, run one script, get a
+built plugin. No prebuilt binaries, no GLIBC/ABI compatibility concerns —
+the script fetches the MariaDB server source of your chosen version, drops
+`storage/fastmem/` into it and builds with the server's own cmake.
+
+```bash
+git clone https://github.com/gjb711/fastmem.git
+cd fastmem
+./install.sh --mariadb-version 12.1.1     # any version/branch: 12.1.1, 11.4, 10.11...
+```
+
+| Flag | Meaning |
+|---|---|
+| `--mariadb-version <v>` | target version (default `12.1.1`); tries tag `maria-<v>` then branch `<v>` |
+| `--branch <name>` | fetch a specific branch/tag instead |
+| `--source-dir <dir>` | reuse an existing MariaDB source tree (no clone) |
+| `--build-dir <dir>` | cmake build directory (default `<src>/build_fastmem`) |
+| `--jobs <n>` | parallel build jobs |
+| `--plugin-dir <dir>` | install plugin here (default: auto-detect) |
+| `--dry-run` | print the plan, change nothing |
+
+Tested strategy on Ubuntu/Debian and macOS (Linux/macOS do the full clone +
+build; Windows works under Git-Bash with the MSVC generator). First run is
+slow (server configure); afterwards the script can be repeated with the
+same checkout.
+
 ### 1) Fastest check: standalone concurrency-core test
 
 No server, no cmake. Needs MSVC `cl` or any C++17 compiler:
 
 ```bat
 call "...\VC\Auxiliary\Build\vcvars64.bat"
-cd storage\fastmem\standalone-test
+cd standalone-test
 cl /nologo /W3 /std:c++17 /O2 /EHsc /MT main.cpp /Fe:fmtest.exe
 fmtest.exe          :: prints "ALL TESTS PASSED"
 ```

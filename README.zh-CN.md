@@ -68,13 +68,40 @@ SQL 层的 `UPDATE/DELETE` 是「读旧图 → 计算 → 写回」三步（跨 
 
 ## 3. 构建
 
+### 3.0 一键安装（源码分发，推荐）
+
+本仓库是**源码分发**：clone 后运行一个脚本即可得到编译好的插件。
+不附带预编译二进制 → 无 GLIBC/ABI 兼容争议、天然跨发行版；脚本会
+clone 你所选版本的 MariaDB 服务端源码，把 `storage/fastmem/` 拷进去，
+再用服务端自带的 cmake 编译（整条路线在 Ubuntu/Debian、macOS 可用；
+Windows 用 Git-Bash + MSVC generator 走同一脚本，或直接看 §7 的完整
+手动步骤）。
+
+```bash
+git clone https://github.com/gjb711/fastmem.git
+cd fastmem
+./install.sh --mariadb-version 12.1.1    # 任意版本/分支：12.1.1、11.4、10.11...
+```
+
+| 参数 | 含义 |
+|---|---|
+| `--mariadb-version <v>` | 目标版本（默认 `12.1.1`）；先试 tag `maria-<v>`，再试分支 `<v>` |
+| `--branch <name>` | 直接指定要拉取的分支/tag |
+| `--source-dir <dir>` | 复用已有的 MariaDB 源码树（不 clone） |
+| `--build-dir <dir>` | cmake 构建目录（默认 `<src>/build_fastmem`） |
+| `--jobs <n>` | 并行编译任务数 |
+| `--plugin-dir <dir>` | 插件安装目录（默认自动探测） |
+| `--dry-run` | 只打印将要执行的动作，不改动任何文件 |
+
+首次运行较慢（需完整 configure 一次）；之后可复用同一源码树增量重建。
+
 ### 3.1 编译独立测试（验证并发核心，最快路径）
 
 无需服务器、无需 cmake；需要 MSVC（cl）或任一 C++17 编译器：
 
 ```bat
 call "C:\Program Files\Microsoft Visual Studio\2022\*\VC\Auxiliary\Build\vcvars64.bat"
-cd storage\fastmem\standalone-test
+cd standalone-test
 cl /nologo /W3 /std:c++17 /O2 /EHsc /MT main.cpp /Fe:fmtest.exe
 fmtest.exe
 ```
