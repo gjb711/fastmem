@@ -1,4 +1,4 @@
-# FASTMEM — 无表锁内存表存储引擎
+# FASTMEM — MariaDB 行锁内存表存储引擎（无表锁 · 无锁读）
 
 [![License: GPL-2.0](https://img.shields.io/badge/license-GPL--2.0-blue.svg)](LICENSE)
 [![MariaDB](https://img.shields.io/badge/MariaDB-12.x-003545.svg)](https://mariadb.org)
@@ -7,8 +7,12 @@
 
 FASTMEM 是面向 **MariaDB 12.x（已按 12.1.1 编译验证）** 的内存存储引擎，
 目标是替代/超越内置 MEMORY（heap）引擎在"高并发读写"场景下的性能：
-**完全去掉表级锁**，读路径无锁（seqlock），写路径行级自旋（槽锁 +
-哈希桶锁）。
+
+- **行锁**：写路径按行串行化（per-slot 自旋锁 + 哈希桶锁），并发写者
+  只竞争自己触碰的行，热行不阻塞冷行；
+- **无表锁**：`store_lock()` 返回空，不存在任何整表锁/等待队列；
+- **无锁读**：读路径用 seqlock 拷贝行镜像，读者永不阻塞写者，
+  写者也不阻塞读者。
 
 - 无事务（`HA_NO_TRANSACTIONS`），语句级语义，最后写入者获胜；
 - 索引：**仅 HASH**（BTREE 在 CREATE 时直接报错拒绝，避免伪支持）；

@@ -1,6 +1,6 @@
 # FASTMEM
 
-**Lock-free in-memory storage engine for MariaDB 12.x**
+**Row-lock in-memory storage engine for MariaDB 12.x — no table locks, lock-free readers**
 
 [![License: GPL-2.0](https://img.shields.io/badge/license-GPL--2.0-blue.svg)](LICENSE)
 [![MariaDB](https://img.shields.io/badge/MariaDB-12.x-003545.svg)](https://mariadb.org)
