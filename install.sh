@@ -174,7 +174,7 @@ fi
 DST="$SRC/storage/fastmem"
 echo ">> copying engine sources: $(basename "$SCRIPT_DIR") -> $DST"
 rm -rf "$DST"
-mkdir -p "$SRC/storage"
+mkdir -p "$DST"
 # Copy everything except the local git dir (and build leftovers).
 (cd "$SCRIPT_DIR" && tar --exclude=.git -cf - .) | tar -C "$DST" -xf -
 [[ -f "$DST/CMakeLists.txt" ]] || { echo "ERROR: CMakeLists.txt missing after copy." >&2; exit 1; }
