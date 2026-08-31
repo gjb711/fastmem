@@ -148,14 +148,13 @@ CREATE TABLE t2 (id INT, k INT, PRIMARY KEY(id),
                  KEY k1 (k)) ENGINE=FASTMEM;
 ```
 
-> **注意（MariaDB ≥ 12.x）**：服务器拒绝加载成熟度低于
-> `plugin_maturity` 的插件（发行版镜像常默认 `gamma`），而 FASTMEM
-> 如实声明为 `BETA`。若报 *"Loading of beta plugin FASTMEM is
-> prohibited"*，在 `[mysqld]` 中配置 `plugin-maturity=beta` 并用
-> `plugin-load-add=ha_fastmem.so` 随服务器启动加载（运行时
-> `SET GLOBAL plugin_maturity` 并不能放行 `INSTALL`）。已由
-> `plugin-load-add` 加载的插件切勿再 `INSTALL PLUGIN` 重复注册，
-> 否则可能导致服务器崩溃。
+> **注意（成熟度）**：自 v1.1 起 FASTMEM 声明为 `GAMMA` 成熟度，
+> 在 MariaDB ≥ 12.x 上开箱即可加载（这些服务器常把 `plugin_maturity`
+> 默认设为 `gamma`，GAMMA 以下会被拒绝）。若仍在用旧的 `1.0`（BETA）
+> 构建并遇到 *"Loading of beta plugin FASTMEM is prohibited"*，要么
+> 升级到 v1.1，要么在 `[mysqld]` 加 `plugin-maturity=beta`。
+> 无论哪个版本：已由 `plugin-load-add` 加载的插件切勿再
+> `INSTALL PLUGIN` 重复注册，否则可能导致服务器崩溃。
 
 行为与 MEMORY 引擎的公共契约一致：
 

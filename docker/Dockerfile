@@ -40,10 +40,11 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
  && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /work/ha_fastmem.so /usr/lib/mysql/plugin/ha_fastmem.so
 COPY docker/bench.sql docker/bench.sh /bench/
-# Auto-load the engine at startup. MariaDB >= 12.x defaults to
-# plugin-maturity=gamma and refuses BETA-maturity plugins; FASTMEM
-# honestly declares BETA, so the maturity gate is relaxed here too.
-RUN printf '[mariadbd]\nplugin-load-add=ha_fastmem.so\nplugin-maturity=beta\n' \
+# Auto-load the engine at startup. The plugin declares GAMMA maturity
+# (version 1.1+), which passes MariaDB >= 12.x default maturity gates
+# without extra configuration. (Older BETA-declared builds additionally
+# required plugin-maturity=beta here.)
+RUN printf '[mariadbd]\nplugin-load-add=ha_fastmem.so\n' \
     > /etc/mysql/mariadb.conf.d/99-fastmem.cnf
 EXPOSE 3306
 CMD ["mariadbd"]

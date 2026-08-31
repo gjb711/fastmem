@@ -614,10 +614,10 @@ maria_declare_plugin(fastmem)
   PLUGIN_LICENSE_GPL,
   fastmem_init,
   NULL,
-  0x0100,                                  /* 1.0 */
+  0x0101,                                  /* 1.1 */
   NULL,                                    /* status variables */
   NULL,                                    /* system variables */
-  "1.0",                                   /* string version */
-  MariaDB_PLUGIN_MATURITY_BETA             /* maturity */
+  "1.1",                                   /* string version */
+  MariaDB_PLUGIN_MATURITY_GAMMA            /* maturity */
 }
 maria_declare_plugin_end;

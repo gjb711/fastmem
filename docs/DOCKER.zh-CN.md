@@ -70,18 +70,19 @@ cmake 构建出 `ha_fastmem.so`。
 ```
 FROM mariadb:<ver>
 COPY --from=builder /work/ha_fastmem.so /usr/lib/mysql/plugin/
-RUN printf '[mariadbd]\nplugin-load-add=ha_fastmem.so\nplugin-maturity=beta\n' \
+RUN printf '[mariadbd]\nplugin-load-add=ha_fastmem.so\n' \
     > /etc/mysql/mariadb.conf.d/99-fastmem.cnf
 ```
 
-这个配置片段同时做两件事，必须放在一起理解：
+这个配置片段只在服务器启动时加载引擎，一行说明：
 
-- `plugin-load-add=ha_fastmem.so`：服务器启动即加载引擎，全程不需要
+- `plugin-load-add=ha_fastmem.so`：启动即加载，全程不需要
   `INSTALL PLUGIN`（重复注册的后果见第 6 节）；
-- `plugin-maturity=beta`：放宽成熟度闸门。FASTMEM 如实声明 `BETA`，
-  而 MariaDB ≥ 12.x 会拒绝低于配置成熟度的插件（发行版镜像可能默认
-  `gamma`），否则报
-  `Loading of beta plugin FASTMEM is prohibited by --plugin-maturity=gamma`。
+- 自 **v1.1** 起插件声明为 **GAMMA** 成熟度，直接通过 MariaDB ≥ 12.x
+  的默认成熟度闸门（已在未额外配置的 12.1.2 服务器上实测
+  `INSTALL SONAME 'ha_fastmem'` 成功）。旧的 `1.0`（BETA）构建才需要
+  在此文件加 `plugin-maturity=beta`，因为配置了
+  `--plugin-maturity=gamma` 的服务器会拒绝更低成熟度的插件。
 
 ## 4. 手动分步执行
 
@@ -151,12 +152,17 @@ docker rm -f fastmem
    'ha_fastmem.so'` 会重复注册，下一次 `SHOW ENGINES` 直接让
    `mariadbd` SIGSEGV（退出码 139）。加载路径二选一，镜像只用
    `conf.d`。
-2. **成熟度闸门要在启动时生效。** `plugin-maturity=beta` 必须写在
-   配置文件或服务器启动参数里；实测 12.1.2 上运行时
-   `SET GLOBAL plugin_maturity='beta'` 并不能放行 `INSTALL`。
-3. **BETA 插件 vs gamma 默认值。** 新服务器/发行版镜像可能把
-   `plugin-maturity` 默认提到 `beta` 之上，加载即报
-   `errno: 1 ... prohibited`。这是 FASTMEM 诚实声明成熟度，不是构建错误。
+2. **成熟度闸门（v1.1+ 已解除，旧版需在启动时配置）。** 自 **v1.1**
+   起插件为 `GAMMA`，在裸 12.1.2 服务器上即可加载（见 3.2 实测
+   `INSTALL SONAME` 成功）。旧的 `1.0`（BETA）构建需要
+   `plugin-maturity=beta` 写在启动读取的地方（配置文件或命令行）；
+   实测 12.1.2 上运行时 `SET GLOBAL plugin_maturity='beta'`
+   并不能放行 `INSTALL`。
+3. **成熟度警告只是警告。** 用 `plugin-load-add` 加载低成熟度插件只会
+   在日志里出现 `Plugin 'FASTMEM' is of maturity level X while the
+   server is Y`，仍能加载；真正硬失败的是 `INSTALL`（插件成熟度低于
+   服务器闸门时报 `errno: 1 ... prohibited`）。让插件版本与服务器一致
+   （见 3.1）即可彻底避免。
 4. **`UPDATE ... WHERE sid=(SELECT ... ORDER BY RAND() LIMIT 1)`** 会被
    12.1.2 优化器按候选行逐行重复求值：任何引擎跑场景 A 都要 205 秒。
    先把 id 解析出来（5.1），否则测的是查询层而不是引擎。

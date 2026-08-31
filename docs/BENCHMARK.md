@@ -174,8 +174,10 @@ Notes on this run:
   the 12.1.2 optimizer re-evaluate the subquery per candidate row
   (205 s for scenario A on any engine) — a query-layer artifact the
   engine comparison must not pay for.
-- The plugin is loaded at server start via
-  `plugin-load-add=ha_fastmem.so` + `plugin-maturity=beta` in
-  `conf.d` (BETA plugin vs `gamma` server default refuses `INSTALL`,
-  and `INSTALL`-ing an already command-line-loaded plugin
-  double-registers and crashes the server — do neither).
+- The plugin is loaded at server start via `plugin-load-add` in
+  `conf.d`. Since **v1.1** the plugin declares `GAMMA` maturity, so it
+  passes the server's default maturity gate (verified: `INSTALL SONAME`
+  succeeds on an unconfigured 12.1.2 server). Older `1.0` (BETA) builds
+  additionally needed `plugin-maturity=beta`; also never `INSTALL` a
+  plugin that is already loaded via `plugin-load-add` —
+  double-registration crashes the server.

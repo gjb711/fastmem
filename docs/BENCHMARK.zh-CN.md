@@ -153,7 +153,8 @@ Windows 表（调度器/vCPU 差异），属正常，不构成矛盾。
   `WHERE sid=(SELECT … ORDER BY RAND() …)`，12.1.2 优化器会对每个候选行
   重新执行子查询（任何引擎场景 A 都要 205 s）——引擎对比不应为这种
   查询层产物买单。
-- 插件通过 `conf.d` 里的 `plugin-load-add=ha_fastmem.so` +
-  `plugin-maturity=beta` 随服务器启动加载（BETA 插件会被 `gamma` 默认值
-  拒绝 `INSTALL`；而对已按命令行加载的插件再 `INSTALL` 会重复注册并
-  导致服务器崩溃——两坑都不要踩）。
+- 插件通过 `conf.d` 里的 `plugin-load-add` 随服务器启动加载。自 **v1.1**
+  起插件声明为 `GAMMA` 成熟度，直接通过服务器默认闸门（实测：在未额外
+  配置的 12.1.2 服务器上 `INSTALL SONAME` 成功）。旧的 `1.0`（BETA）
+  构建才需要 `plugin-maturity=beta`；另外，切勿对已通过
+  `plugin-load-add` 加载的插件再 `INSTALL`——重复注册会导致服务器崩溃。

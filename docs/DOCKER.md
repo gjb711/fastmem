@@ -75,20 +75,20 @@ reliable strategy — there are no portable prebuilt `.so` files.
 ```
 FROM mariadb:<ver>
 COPY --from=builder /work/ha_fastmem.so /usr/lib/mysql/plugin/
-RUN printf '[mariadbd]\nplugin-load-add=ha_fastmem.so\nplugin-maturity=beta\n' \
+RUN printf '[mariadbd]\nplugin-load-add=ha_fastmem.so\n' \
     > /etc/mysql/mariadb.conf.d/99-fastmem.cnf
 ```
 
-The drop-in does two things that must be understood together:
+The drop-in loads the engine at server start with a single line:
 
-- `plugin-load-add=ha_fastmem.so` loads the engine at server start —
-  no `INSTALL PLUGIN` ever needed (and see the double-registration
-  warning in Section 6).
-- `plugin-maturity=beta` relaxes the maturity gate. FASTMEM honestly
-  declares itself `BETA`; MariaDB ≥ 12.x can refuse plugins below the
-  configured maturity level (distro images may default to `gamma`),
-  which otherwise fails with
-  `Loading of beta plugin FASTMEM is prohibited by --plugin-maturity=gamma`.
+- `plugin-load-add=ha_fastmem.so` — no `INSTALL PLUGIN` ever needed
+  (and see the double-registration warning in Section 6).
+- Since **v1.1** the plugin declares **GAMMA** maturity, so it passes the
+  default maturity gate of MariaDB ≥ 12.x servers directly (verified:
+  `INSTALL SONAME 'ha_fastmem'` succeeds on an unconfigured 12.1.2
+  server). The old `1.0` (BETA) build additionally required
+  `plugin-maturity=beta` in this file, because servers configured with
+  `--plugin-maturity=gamma` refuse lower-maturity plugins.
 
 ## 4. Manual, stage-by-stage
 
@@ -162,14 +162,20 @@ detector: a single dropped RMW shows up immediately.
    `INSTALL PLUGIN fastmem SONAME 'ha_fastmem.so'` double-registers it;
    the next `SHOW ENGINES` segfaults `mariadbd` (SIGSEGV, exit 139).
    Pick exactly one load path. The image uses `conf.d` only.
-2. **Maturity gate.** `plugin-maturity=beta` must be set where the
-   *startup* sees it (config file or server command line). A runtime
+2. **Maturity gate (v1.1+: not needed; pre-1.1: config-time only).**
+   Since **v1.1** the plugin is `GAMMA` and loads on a stock 12.1.2
+   server — see the verified `INSTALL SONAME` result in Section 3.2. The
+   old `1.0` (BETA) build required `plugin-maturity=beta` in a place the
+   *startup* reads (config file or command line); a runtime
    `SET GLOBAL plugin_maturity='beta'` did **not** unblock `INSTALL` on
    12.1.2 in our tests.
-3. **BETA plugin, gamma default.** Distro images / newer servers may
-   default `plugin-maturity` above `beta`; loading then fails with
-   `errno: 1 ... prohibited`. This is FASTMEM being honest about its
-   maturity, not a build error.
+3. **Maturity warning is just a warning.** A low-maturity plugin loaded
+   via `plugin-load-add` logs
+   `Plugin 'FASTMEM' is of maturity level X while the server is Y` but
+   still loads; it is `INSTALL` that hard-fails with
+   `errno: 1 ... prohibited` when the plugin maturity is below the
+   server's gate. Match the plugin version to the server (Section 3.1)
+   and this never bites.
 4. **`UPDATE ... WHERE sid=(SELECT ... ORDER BY RAND() LIMIT 1)`** is
    re-evaluated *per candidate row* by the 12.1.2 optimizer: scenario A
    took 205 s on any engine. Resolve the id first (5.1) — otherwise you
