@@ -316,6 +316,10 @@ Next steps:
   1) Enable the plugin in my.cnf under [mysqld]:
        plugin-load-add=ha_fastmem
      (on Windows: put the same line in my.ini)
+     NOTE (MariaDB >= 12.x): if the server refuses to load it with
+     "Loading of beta plugin ... prohibited", also add:
+       plugin-maturity=beta
+     (FASTMEM honestly declares itself BETA maturity.)
   2) Restart MariaDB, then verify:
        SHOW ENGINES;            -- FASTMEM should be listed
   3) Usage is identical to MEMORY (heap) tables:

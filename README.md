@@ -53,6 +53,12 @@ SELECT * FROM t WHERE id = 2;          -- lock-free read
 UPDATE t SET v = v + 1 WHERE id = 2;   -- row-level serialized read-modify-write
 ```
 
+> **Note (MariaDB ≥ 12.1.2):** the server only accepts plugins whose
+> maturity reaches `plugin_maturity` (default `beta`, distro images may set
+> `gamma`). FASTMEM honestly declares itself `BETA`; if you see *"Loading of
+> beta plugin FASTMEM is prohibited"*, run `SET GLOBAL plugin_maturity='beta';`
+> before `INSTALL`, or put `plugin-maturity=beta` under `[mysqld]`.
+
 Same public contract as the MEMORY engine:
 
 - row limit governed by `max_heap_table_size` (estimated at `CREATE`)

@@ -16,6 +16,7 @@ echo " FASTMEM vs MEMORY vs InnoDB"
 echo " server: $(M -e 'SELECT VERSION()') | $(uname -m), $(nproc) CPUs"
 echo "=============================================================="
 M -e "SHOW ENGINES" | awk '$1=="FASTMEM"||$1=="MEMORY"||$1=="InnoDB"{print "engine: "$1" "$2}'
+M -e "SHOW PLUGINS" | awk '$1=="FASTMEM"{print "plugin: "$1" "$4}'
 
 M -e "CREATE DATABASE IF NOT EXISTS fmtest"
 mariadb -uroot -p"$PW" < /bench/bench.sql
