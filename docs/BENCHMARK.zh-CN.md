@@ -107,3 +107,17 @@ CALL fmtest.fm_reader_loop('fm_kline', 300);  # 读者循环
 - 数据集小（7000 行）、并发数小：数字反映相对行为，非峰值吞吐。
 - 客户端进程各自有 ~200ms 连接开销；绝对耗时对三引擎同等包含该开销。
 - MEMORY/FASTMEM 表是易失的：服务器重启后清空（测试数据由重置脚本重建）。
+
+## 7. 一条命令在 Linux 复现（Docker）
+
+想在 Linux 上一键复现完整的 A–D 对比，构建一个用对应版本官方源码现场编译
+插件的 `mariadb:<ver>` 镜像，然后跑同一套负载：
+
+```bash
+./docker/run-benchmark.sh 12.1.2
+```
+
+`docker/bench.sql`（建表 + worker 存储过程）、`docker/bench.sh`（A–D 负载框架，
+逐阶段 `SUM(close)` 零丢失校验）、`docker/Dockerfile` 都是自包含的，需要时
+可分步手动执行。Docker 的结果是独立的 Linux 复现——绝对数字会不同于上面的
+Windows 表（调度器/vCPU 差异），属正常，不构成矛盾。

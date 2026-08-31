@@ -150,6 +150,23 @@ Observations:
   dominated by the MySQL protocol/connection layer (~200 ms per local
   connection); the in-engine data path itself is sub-microsecond.
 
+### Reproduce the whole comparison in one Docker command
+
+Want the same numbers on Linux, without setting up anything? This builds a
+`mariadb:<ver>` image with FASTMEM compiled from the matching official source
+tarball (so no ABI guesswork), starts it, and runs the four scenarios A–D plus
+the per-phase zero-loss checks:
+
+```bash
+git clone https://github.com/gjb711/fastmem.git
+cd fastmem
+./docker/run-benchmark.sh 12.1.2
+```
+
+First run downloads ~120 MB of server source and builds the plugin (a few
+minutes); afterwards the image is cached. See `docker/Dockerfile` and
+`docker/bench.sh` — you can also run them stage by stage.
+
 ## Tests
 
 | Location | What it covers |
@@ -157,6 +174,7 @@ Observations:
 | `mysql-test/` | MTR functional tests (`fastmem.test`, `have_fastmem.inc`) |
 | `standalone-test/main.cpp` | Concurrency core: tear detection, unique-key integrity, stale refs, multi-key accounting (no server needed) |
 | `bench/` | Reproducible benchmarks: single connection, 8-way, hot-row contention, pure UPDATE streams, table reset |
+| `docker/` | One-command Linux reproduction of the full A–D three-engine comparison inside a container (`run-benchmark.sh`) |
 
 ## Limitations (by design)
 

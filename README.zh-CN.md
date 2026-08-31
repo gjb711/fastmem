@@ -208,6 +208,21 @@ CREATE TABLE t2 (id INT, k INT, PRIMARY KEY(id),
   连接净开销 ~200ms），引擎内部数据路径为亚微秒级；
 - 并发自增 4 进程 × 250 行：id 1..1000 连续**无重复无缺口**。
 
+### 一条 Docker 命令复现完整对比
+
+想在 Linux 上零环境拿到同样的数字？下面这条命令会用与镜像完全对应版本的
+官方源码现场编译 FASTMEM 插件（免去 ABI 猜测），启动 `mariadb:<ver>` 服务，
+跑完 A–D 四个场景及逐阶段零丢失校验：
+
+```bash
+git clone https://github.com/gjb711/fastmem.git
+cd fastmem
+./docker/run-benchmark.sh 12.1.2
+```
+
+首次运行会下载约 120MB server 源码并编译插件（几分钟），之后镜像有缓存。
+脚本见 `docker/Dockerfile` 与 `docker/bench.sh`，也可分步手动执行。
+
 ## 7. Windows 实测构建与部署（mariadb-12.1.1）
 
 本引擎已在 `mariadb-12.1.1` 源码 + VS2022 (MSVC x64) 下编译出

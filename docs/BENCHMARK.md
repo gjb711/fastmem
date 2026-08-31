@@ -122,3 +122,19 @@ connections, then verify `SUM(close)` against the expected increment.
   include it equally for all engines.
 - MEMORY/FASTMEM tables are volatile: they empty on server restart
   (test data is rebuilt by the reset scripts).
+
+## 7. One-command Linux reproduction (Docker)
+
+To reproduce the entire A–D comparison on Linux in one shot, build a
+`mariadb:<ver>` image with the plugin compiled from the matching official
+source tarball and run the same workloads:
+
+```bash
+./docker/run-benchmark.sh 12.1.2
+```
+
+`docker/bench.sql` (schema + worker procedures), `docker/bench.sh` (A–D
+harness with per-phase `SUM(close)` zero-loss checks) and `docker/Dockerfile`
+are self-contained; run them stage by stage if you prefer. The Docker results
+are an independent Linux replication — expect different absolute numbers from
+the Windows table above (scheduler/vCPU effects), not a contradiction.
