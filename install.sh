@@ -190,6 +190,22 @@ mkdir -p "$DST"
 [[ -f "$DST/CMakeLists.txt" ]] || { echo "ERROR: CMakeLists.txt missing after copy." >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
+# MariaDB sources use git submodules.  Configure would fetch ALL of them
+# (rocksdb, columnstore, wsrep-lib, wolfssl, ...) over the network - and
+# aborts if any fails.  We fetch only the required one (MariaDB
+# Connector/C) ourselves and tell cmake to leave the rest alone.
+# ---------------------------------------------------------------------------
+
+if [[ -d "$SRC/.git" ]]; then
+  if [[ ! -f "$SRC/libmariadb/CMakeLists.txt" ]]; then
+    echo ">> fetching required submodule: libmariadb (MariaDB Connector/C)"
+    git -C "$SRC" submodule update --init --depth 1 libmariadb
+  fi
+  git -C "$SRC" config cmake.update-submodules no
+  echo ">> submodules: libmariadb ready, other submodules disabled (cmake.update-submodules=no)"
+fi
+
+# ---------------------------------------------------------------------------
 # cmake configure + build
 # ---------------------------------------------------------------------------
 
