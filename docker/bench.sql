@@ -17,11 +17,9 @@ CREATE TABLE kline_stage (
   close DECIMAL(19,4) NOT NULL
 ) ENGINE=InnoDB;
 
-WITH RECURSIVE seq(n) AS (
-  SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n < 7000
-)
+-- MariaDB's built-in sequence table avoids the recursive-iteration limit.
 INSERT INTO kline_stage
-SELECT CONCAT('K', LPAD(n,8,'0')), 1 + n*0.001 FROM seq;
+SELECT CONCAT('K', LPAD(seq,8,'0')), 1 + seq*0.001 FROM seq_1_to_7000;
 
 CREATE TABLE fm_kline  ENGINE=FASTMEM AS SELECT * FROM kline_stage;
 CREATE TABLE mm_kline  ENGINE=MEMORY  AS SELECT * FROM kline_stage;
@@ -31,18 +29,21 @@ CREATE TABLE hot_sids (sid VARCHAR(50) NOT NULL PRIMARY KEY) ENGINE=MEMORY;
 INSERT INTO hot_sids SELECT sid FROM fm_kline ORDER BY RAND() LIMIT 100;
 
 DELIMITER //
--- writer: n UPDATEs of +1 on a random hot row of the given table
+-- writer: n UPDATEs of +1 on a random hot row of the given table.
+-- The random sid is resolved in its own statement: `UPDATE ... WHERE
+-- sid=(SELECT ... ORDER BY RAND() ...)` would be re-evaluated per
+-- candidate row by the 12.1.2 optimizer and swamp the engine delta.
 CREATE PROCEDURE fm_writer(IN tbl VARCHAR(20), IN n INT)
 BEGIN
   DECLARE i INT DEFAULT 0;
-  SET @w = CONCAT('UPDATE ', tbl,
-    ' SET close=close+1 WHERE sid=(SELECT sid FROM hot_sids ORDER BY RAND() LIMIT 1)');
-  PREPARE s FROM @w;
   WHILE i < n DO
+    SET @sid = (SELECT sid FROM hot_sids ORDER BY RAND() LIMIT 1);
+    SET @w = CONCAT('UPDATE ', tbl, ' SET close=close+1 WHERE sid=''', @sid, '''');
+    PREPARE s FROM @w;
     EXECUTE s;
+    DEALLOCATE PREPARE s;
     SET i = i + 1;
   END WHILE;
-  DEALLOCATE PREPARE s;
 END//
 -- reader: n full-table SUM scans
 CREATE PROCEDURE fm_reader(IN tbl VARCHAR(20), IN n INT)

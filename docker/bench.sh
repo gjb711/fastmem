@@ -27,13 +27,13 @@ for t in fm_kline mm_kline inn_kline; do BASE[$t]=$(M -e "SELECT SUM(close) FROM
 echo "baseline SUM(close) fm/mm/inn = ${BASE[fm_kline]} / ${BASE[mm_kline]} / ${BASE[inn_kline]}"
 
 check() { # table before expect_delta
-  local t=$1 before=$2 delta=$3
-  local after d verdict
+  local t=$1 before=$2 delta=$3 after d e verdict
   after=$(M -e "SELECT SUM(close) FROM fmtest.$t")
-  d=$(echo "$after - $before" | bc)
+  d=$(awk -v a="$after" -v b="$before" 'BEGIN{printf "%.4f", a-b}')
+  e=$(awk -v x="$delta" 'BEGIN{printf "%.4f", x}')
   verdict=PASS
-  [ "$d" != "$delta" ] && verdict="FAIL(exp $delta)"
-  echo "  [sum] $t delta=$d -> $verdict"
+  [ "$d" != "$e" ] && verdict="FAIL(exp $e)"
+  echo "  [sum] $t after=$after delta=$d -> $verdict"
 }
 
 echo ""
@@ -50,10 +50,12 @@ echo ""
 echo "--- B: 8 concurrent x 2000 updates ---"
 for t in fm_kline mm_kline inn_kline; do
   s=$(date +%s)
+  PIDS=""
   for j in 1 2 3 4 5 6 7 8; do
     ( mariadb -uroot -p"$PW" -N -B -e "CALL fmtest.fm_writer('$t',2000)" >/dev/null 2>&1 ) &
+    PIDS="$PIDS $!"
   done
-  wait
+  wait $PIDS
   e=$(date +%s)
   echo "B $t  $(($e-$s))s"; check "$t" "${BASE[$t]}" 16000
   BASE[$t]=$(M -e "SELECT SUM(close) FROM fmtest.$t")
@@ -63,13 +65,16 @@ echo ""
 echo "--- C: 8 writers x300 + 4 readers x300 (concurrent) ---"
 for t in fm_kline mm_kline inn_kline; do
   s=$(date +%s)
+  PIDS=""
   for j in 1 2 3 4 5 6 7 8; do
     ( mariadb -uroot -p"$PW" -N -B -e "CALL fmtest.fm_writer('$t',300)" >/dev/null 2>&1 ) &
+    PIDS="$PIDS $!"
   done
   for j in 1 2 3 4; do
     ( mariadb -uroot -p"$PW" -N -B -e "CALL fmtest.fm_reader('$t',300)" >/dev/null 2>&1 ) &
+    PIDS="$PIDS $!"
   done
-  wait
+  wait $PIDS
   e=$(date +%s)
   echo "C $t  $(($e-$s))s"; check "$t" "${BASE[$t]}" 2400
   BASE[$t]=$(M -e "SELECT SUM(close) FROM fmtest.$t")
@@ -80,15 +85,18 @@ echo "--- D: 8 writers x500, readers {0,4,8} x500 ---"
 for R in 0 4 8; do
   for t in fm_kline mm_kline inn_kline; do
     s=$(date +%s)
+    PIDS=""
     for j in 1 2 3 4 5 6 7 8; do
       ( mariadb -uroot -p"$PW" -N -B -e "CALL fmtest.fm_writer('$t',500)" >/dev/null 2>&1 ) &
+      PIDS="$PIDS $!"
     done
     if [ "$R" -gt 0 ]; then
       for j in $(seq 1 "$R"); do
         ( mariadb -uroot -p"$PW" -N -B -e "CALL fmtest.fm_reader('$t',500)" >/dev/null 2>&1 ) &
+        PIDS="$PIDS $!"
       done
     fi
-    wait
+    wait $PIDS
     e=$(date +%s)
     echo "D(r=$R) $t  $(($e-$s))s"; check "$t" "${BASE[$t]}" 4000
     BASE[$t]=$(M -e "SELECT SUM(close) FROM fmtest.$t")

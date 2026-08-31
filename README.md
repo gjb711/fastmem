@@ -53,11 +53,15 @@ SELECT * FROM t WHERE id = 2;          -- lock-free read
 UPDATE t SET v = v + 1 WHERE id = 2;   -- row-level serialized read-modify-write
 ```
 
-> **Note (MariaDB ≥ 12.1.2):** the server only accepts plugins whose
-> maturity reaches `plugin_maturity` (default `beta`, distro images may set
-> `gamma`). FASTMEM honestly declares itself `BETA`; if you see *"Loading of
-> beta plugin FASTMEM is prohibited"*, run `SET GLOBAL plugin_maturity='beta';`
-> before `INSTALL`, or put `plugin-maturity=beta` under `[mysqld]`.
+> **Note (MariaDB ≥ 12.x):** the server refuses to load plugins whose
+> maturity is below `plugin_maturity` (distro images often default to
+> `gamma`), and FASTMEM honestly declares itself `BETA`. If you see
+> *"Loading of beta plugin FASTMEM is prohibited"*, add
+> `plugin-maturity=beta` under `[mysqld]` and load the engine with
+> `plugin-load-add=ha_fastmem.so` (a runtime `SET GLOBAL plugin_maturity`
+> does not unblock `INSTALL`). Do not `INSTALL PLUGIN` a plugin that was
+> already loaded by `plugin-load-add` — that double registration can
+> crash the server.
 
 Same public contract as the MEMORY engine:
 
