@@ -146,9 +146,16 @@ if [[ -n "$SOURCE_DIR" ]]; then
 else
   SRC="mariadb-server-${VERSION}"
   if [[ -d "$SRC/.git" ]]; then
-    echo ">> directory '$SRC' already has a checkout - reusing it."
-    echo "   (remove it or pass --source-dir to use another tree)"
-  else
+    if [[ -f "$SRC/CMakeLists.txt" ]]; then
+      echo ">> directory '$SRC' already has a checkout - reusing it."
+      echo "   (remove it or pass --source-dir to use another tree)"
+    else
+      echo ">> '$SRC' exists but is incomplete (no CMakeLists.txt) -"
+      echo "   removing it and cloning again."
+      rm -rf "$SRC"
+    fi
+  fi
+  if [[ ! -d "$SRC/.git" ]]; then
     CLONED=0
     for ref in "${REFS[@]}"; do
       echo ">> git clone --depth 1 --branch $ref https://github.com/MariaDB/server.git"
@@ -245,7 +252,7 @@ for c in "${PLUGIN_CANDIDATES[@]}"; do
 done
 if [[ -z "$PLUGIN_SRC" ]]; then
   echo "WARN: plugin binary not found at the usual locations;" >&2
-  echo "      look for ha_fastmem.so/.dylib/.dll under $BUILD/storage/fastmem" >&2
+  echo "      look for ha_fastmem.so/.dylib/.dll under $BUILD_DIR/storage/fastmem" >&2
   echo "      and copy it into your MariaDB plugin dir manually." >&2
   exit 1
 fi
