@@ -138,3 +138,41 @@ harness with per-phase `SUM(close)` zero-loss checks) and `docker/Dockerfile`
 are self-contained; run them stage by stage if you prefer. The Docker results
 are an independent Linux replication — expect different absolute numbers from
 the Windows table above (scheduler/vCPU effects), not a contradiction.
+
+## 8. Verified Docker results (Linux replication)
+
+Actual output of `./docker/run-benchmark.sh 12.1` on this project
+(server `mariadbd 12.1.2-MariaDB-ubu2404`, x86_64, 12 vCPU, workloads
+running inside stored procedures so client round-trips do not dominate):
+
+| scenario | FASTMEM | MEMORY | InnoDB |
+|---|---|---|---|
+| A — 1 conn × 2000 PK updates | **1 s** | 1 s | 7 s |
+| B — 8 conns × 2000 PK updates | **2 s** | 7 s | 30 s |
+| C — 8 writers + 4 readers × 300 | **0 s** | 2 s | 5 s |
+| D(r=0) — 8 writers × 500 | **1 s** | 1 s | 8 s |
+| D(r=4) — + 4 readers × 500 | **1 s** | 2 s | 8 s |
+| D(r=8) — + 8 readers × 500 | **1 s** | 2 s | 9 s |
+
+All 18 zero-loss checks PASS: in every phase, for every engine, the
+`SUM(close)` delta equals the number of applied `+1` statements
+(2000 / 16000 / 2400 / 4000) — the statement-serialized RMW path is
+correct on Linux exactly as on Windows.
+
+Notes on this run:
+
+- Times are whole seconds; sub-second phases collapse to `0–1 s`, so
+  A/C/D mainly prove ordering, while B shows the real concurrency gap
+  (FASTMEM 2 s vs MEMORY 7 s vs InnoDB 30 s under 8-way hot-row
+  contention).
+- The random hot-row id is resolved in its own statement before each
+  `UPDATE` (`SET @sid=(…)` then `UPDATE … WHERE sid=@sid`). Putting
+  `WHERE sid=(SELECT … ORDER BY RAND() …)` inside the `UPDATE` made
+  the 12.1.2 optimizer re-evaluate the subquery per candidate row
+  (205 s for scenario A on any engine) — a query-layer artifact the
+  engine comparison must not pay for.
+- The plugin is loaded at server start via
+  `plugin-load-add=ha_fastmem.so` + `plugin-maturity=beta` in
+  `conf.d` (BETA plugin vs `gamma` server default refuses `INSTALL`,
+  and `INSTALL`-ing an already command-line-loaded plugin
+  double-registers and crashes the server — do neither).

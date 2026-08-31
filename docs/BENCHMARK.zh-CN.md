@@ -121,3 +121,36 @@ CALL fmtest.fm_reader_loop('fm_kline', 300);  # 读者循环
 逐阶段 `SUM(close)` 零丢失校验）、`docker/Dockerfile` 都是自包含的，需要时
 可分步手动执行。Docker 的结果是独立的 Linux 复现——绝对数字会不同于上面的
 Windows 表（调度器/vCPU 差异），属正常，不构成矛盾。
+
+## 8. Docker 实测结果（Linux 复现）
+
+本项目在 `./docker/run-benchmark.sh 12.1` 下的真实输出
+（server `mariadbd 12.1.2-MariaDB-ubu2404`，x86_64，12 vCPU，负载在存储
+过程内循环执行，客户端往返不再是主要开销）：
+
+| 场景 | FASTMEM | MEMORY | InnoDB |
+|---|---|---|---|
+| A — 1 连接 × 2000 主键更新 | **1 s** | 1 s | 7 s |
+| B — 8 连接 × 2000 主键更新 | **2 s** | 7 s | 30 s |
+| C — 8 写 + 4 读 × 300 | **0 s** | 2 s | 5 s |
+| D(r=0) — 8 写 × 500 | **1 s** | 1 s | 8 s |
+| D(r=4) — 再加 4 读 × 500 | **1 s** | 2 s | 8 s |
+| D(r=8) — 再加 8 读 × 500 | **1 s** | 2 s | 9 s |
+
+18 项零丢失校验全部 PASS：每个阶段、每个引擎的 `SUM(close)` 增量都精确
+等于已执行的 `+1` 语句数（2000 / 16000 / 2400 / 4000）——语句串行化的
+读改写路径在 Linux 上与 Windows 一样正确。
+
+本次运行的补充说明：
+
+- 计时粒度为整秒，亚秒阶段收敛为 `0–1 s`，A/C/D 主要说明先后次序，
+  B 才拉开真实并发差距（8 写热行：FASTMEM 2 s，MEMORY 7 s，InnoDB 30 s）。
+- 随机热行 id 在 `UPDATE` 之前单独解析（`SET @sid=(…)` 之后
+  `UPDATE … WHERE sid=@sid`）。若写成
+  `WHERE sid=(SELECT … ORDER BY RAND() …)`，12.1.2 优化器会对每个候选行
+  重新执行子查询（任何引擎场景 A 都要 205 s）——引擎对比不应为这种
+  查询层产物买单。
+- 插件通过 `conf.d` 里的 `plugin-load-add=ha_fastmem.so` +
+  `plugin-maturity=beta` 随服务器启动加载（BETA 插件会被 `gamma` 默认值
+  拒绝 `INSTALL`；而对已按命令行加载的插件再 `INSTALL` 会重复注册并
+  导致服务器崩溃——两坑都不要踩）。
