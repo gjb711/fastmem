@@ -199,14 +199,14 @@ fi
 
 CMAKE="$({ command -v cmake3 || command -v cmake; } 2>/dev/null | head -n1)"
 echo ">> cmake: $CMAKE"
-echo ">> configure: cmake -S $SRC -B $BUILD [RelWithDebInfo]"
+echo ">> configure: cmake -S $SRC -B $BUILD_DIR [RelWithDebInfo]"
 
 # Platform-neutral configure options.  WITH_SSL=system keeps the build
 # independent from bundled downloads; if the system has no OpenSSL dev
 # files, swap to --extra-cmake-args "-DWITH_SSL=bundled" (needs network).
 CMAKE_ARGS=(
   -S "$SRC"
-  -B "$BUILD"
+  -B "$BUILD_DIR"
   -DCMAKE_BUILD_TYPE=RelWithDebInfo
   -DWITH_WSREP=OFF
   -DWITH_SSL=system
@@ -224,19 +224,19 @@ echo ">> running cmake (first configure is the slow step)..."
 "$CMAKE" "${CMAKE_ARGS[@]}"
 
 echo ">> building target: fastmem (jobs=$JOBS)"
-"$CMAKE" --build "$BUILD" --config RelWithDebInfo --target fastmem -- -j"$JOBS"
+"$CMAKE" --build "$BUILD_DIR" --config RelWithDebInfo --target fastmem -- -j"$JOBS"
 
 # ---------------------------------------------------------------------------
 # locate the plugin and install it
 # ---------------------------------------------------------------------------
 
 case "$(uname)" in
-  Darwin) PLUGIN_CANDIDATES=("$BUILD/storage/fastmem/ha_fastmem.dylib" \
-                             "$BUILD/storage/fastmem/RelWithDebInfo/ha_fastmem.dylib") ;;
-  MINGW*|MSYS*|CYGWIN*) PLUGIN_CANDIDATES=("$BUILD/storage/fastmem/ha_fastmem.dll" \
-                                           "$BUILD/storage/fastmem/RelWithDebInfo/ha_fastmem.dll") ;;
-  *) PLUGIN_CANDIDATES=("$BUILD/storage/fastmem/ha_fastmem.so" \
-                        "$BUILD/storage/fastmem/RelWithDebInfo/ha_fastmem.so") ;;
+  Darwin) PLUGIN_CANDIDATES=("$BUILD_DIR/storage/fastmem/ha_fastmem.dylib" \
+                             "$BUILD_DIR/storage/fastmem/RelWithDebInfo/ha_fastmem.dylib") ;;
+  MINGW*|MSYS*|CYGWIN*) PLUGIN_CANDIDATES=("$BUILD_DIR/storage/fastmem/ha_fastmem.dll" \
+                                           "$BUILD_DIR/storage/fastmem/RelWithDebInfo/ha_fastmem.dll") ;;
+  *) PLUGIN_CANDIDATES=("$BUILD_DIR/storage/fastmem/ha_fastmem.so" \
+                        "$BUILD_DIR/storage/fastmem/RelWithDebInfo/ha_fastmem.so") ;;
 esac
 
 PLUGIN_SRC=""
