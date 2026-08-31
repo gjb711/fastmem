@@ -230,7 +230,9 @@ cd fastmem
 ```
 
 首次运行会下载约 120MB server 源码并编译插件（几分钟），之后镜像有缓存。
-脚本见 `docker/Dockerfile` 与 `docker/bench.sh`，也可分步手动执行。
+完整的构建/测试讲解——镜像分阶段构建、手动分步执行、Linux 实测结果，以及
+我们真实踩过的坑（成熟度闸门、插件 ABI 版本闸门、优化器行为）——见
+**[docs/DOCKER.zh-CN.md](docs/DOCKER.zh-CN.md)**（英文：docs/DOCKER.md）。
 
 ## 7. Windows 实测构建与部署（mariadb-12.1.1）
 

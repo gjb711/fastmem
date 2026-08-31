@@ -174,8 +174,10 @@ cd fastmem
 ```
 
 First run downloads ~120 MB of server source and builds the plugin (a few
-minutes); afterwards the image is cached. See `docker/Dockerfile` and
-`docker/bench.sh` — you can also run them stage by stage.
+minutes); afterwards the image is cached. The full build/test walkthrough —
+image stages, manual step-by-step, verified Linux results and the pitfalls we
+hit (maturity gate, plugin ABI version gate, optimizer quirks) — is in
+**[`docs/DOCKER.md`](docs/DOCKER.md)** ([中文](docs/DOCKER.zh-CN.md)).
 
 ## Tests
 

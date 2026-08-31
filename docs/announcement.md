@@ -47,6 +47,14 @@ Measured on MariaDB 12.1.1 (7000-row K-line table, 100 hot rows):
 Every run doubled as a correctness check: final SUM matches the expected
 increment exactly, zero lost updates.
 
+The full protocol was independently replicated on Linux with the official
+`mariadb:12.1.2` Docker image (plugin compiled from the matching source
+inside the image — one command: `./docker/run-benchmark.sh`): 8 x 2000
+concurrent hot-row UPDATEs finish in **2 s on FASTMEM vs 7 s on MEMORY vs
+30 s on InnoDB**, and all 18 per-phase zero-loss checks pass. Build
+walkthrough and the pitfalls we hit (maturity gate, plugin ABI version
+gate): `docs/DOCKER.md`.
+
 Distribution is source-only plus `./install.sh`: it fetches the MariaDB
 server source of the requested version (`--mariadb-version 12.1.1`,
 falls back to the `12.1` branch), drops `storage/fastmem/` into it and
@@ -83,6 +91,9 @@ https://github.com/gjb711/fastmem  (README + DESIGN.md + docs/BENCHMARK.md)
 
 Source distribution: git clone + ./install.sh --mariadb-version 12.1.1
 (no prebuilt binaries; validated end-to-end in Docker Ubuntu 24.04).
+Linux replication on mariadb 12.1.2 via ./docker/run-benchmark.sh:
+8-way hot-row UPDATEs FASTMEM 2 s vs MEMORY 7 s vs InnoDB 30 s, 18/18
+zero-loss checks pass (docs/DOCKER.md).
 Licensed GPL-2.0. Contributions and technical review welcome.
 
 Link to this JIRA ticket: please provide the ticket URL here.

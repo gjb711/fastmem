@@ -125,6 +125,9 @@ connections, then verify `SUM(close)` against the expected increment.
 
 ## 7. One-command Linux reproduction (Docker)
 
+Full walkthrough (image build stages, manual steps, verified results,
+pitfalls): [`DOCKER.md`](DOCKER.md).
+
 To reproduce the entire A–D comparison on Linux in one shot, build a
 `mariadb:<ver>` image with the plugin compiled from the matching official
 source tarball and run the same workloads:

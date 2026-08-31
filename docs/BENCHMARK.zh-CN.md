@@ -110,6 +110,9 @@ CALL fmtest.fm_reader_loop('fm_kline', 300);  # 读者循环
 
 ## 7. 一条命令在 Linux 复现（Docker）
 
+完整讲解（镜像分阶段构建、手动分步、实测结果与踩坑）见
+[`DOCKER.zh-CN.md`](DOCKER.zh-CN.md)。
+
 想在 Linux 上一键复现完整的 A–D 对比，构建一个用对应版本官方源码现场编译
 插件的 `mariadb:<ver>` 镜像，然后跑同一套负载：
 
