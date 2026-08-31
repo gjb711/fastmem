@@ -73,9 +73,10 @@ SQL 层的 `UPDATE/DELETE` 是「读旧图 → 计算 → 写回」三步（跨 
 本仓库是**源码分发**：clone 后运行一个脚本即可得到编译好的插件。
 不附带预编译二进制 → 无 GLIBC/ABI 兼容争议、天然跨发行版；脚本会
 clone 你所选版本的 MariaDB 服务端源码，把 `storage/fastmem/` 拷进去，
-再用服务端自带的 cmake 编译（整条路线在 Ubuntu/Debian、macOS 可用；
-Windows 用 Git-Bash + MSVC generator 走同一脚本，或直接看 §7 的完整
-手动步骤）。
+再用服务端自带的 cmake 编译（整条路线已在 Docker Ubuntu 24.04 容器
+端到端验证：clone → configure → 构建出 `ha_fastmem.so`；macOS 走同一
+路径；Windows 用 Git-Bash + MSVC generator 走同一脚本，或直接看 §7
+的完整手动步骤）。
 
 ```bash
 git clone https://github.com/gjb711/fastmem.git

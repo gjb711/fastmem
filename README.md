@@ -84,10 +84,11 @@ cd fastmem
 | `--plugin-dir <dir>` | install plugin here (default: auto-detect) |
 | `--dry-run` | print the plan, change nothing |
 
-Tested strategy on Ubuntu/Debian and macOS (Linux/macOS do the full clone +
-build; Windows works under Git-Bash with the MSVC generator). First run is
-slow (server configure); afterwards the script can be repeated with the
-same checkout.
+Validated end-to-end in a Docker Ubuntu 24.04 container (clone →
+configure → build → `ha_fastmem.so`); macOS uses the same path, and
+Windows works under Git-Bash with the MSVC generator. First run is slow
+(server configure); afterwards the script can be repeated with the same
+checkout.
 
 ### 1) Fastest check: standalone concurrency-core test
 
